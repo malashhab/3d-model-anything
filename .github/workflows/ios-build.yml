@@ -1,0 +1,37 @@
+name: Build iOS app (unsigned)
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/house-capture/**'
+      - '.github/workflows/ios-build.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: brew install xcodegen
+      - name: Generate project
+        working-directory: apps/house-capture
+        run: xcodegen generate
+      - name: Build (unsigned)
+        working-directory: apps/house-capture
+        run: |
+          xcodebuild -project HouseCapture.xcodeproj -scheme HouseCapture -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+      - name: Package ipa
+        working-directory: apps/house-capture
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/HouseCapture.app Payload/
+          zip -r HouseCapture-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HouseCapture-unsigned-ipa
+          path: apps/house-capture/HouseCapture-unsigned.ipa
